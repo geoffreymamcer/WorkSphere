@@ -1,0 +1,70 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+.pnp/
+.pnp.js
+
+# =========================
+# Build output
+# =========================
+dist/
+build/
+.next/
+out/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# =========================
+# Logs
+# =========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# =========================
+# OS / Editor junk
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# =========================
+# IDE / Editor settings
+# =========================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+
+# =========================
+# Testing
+# =========================
+coverage/
+.playwright/
+
+# =========================
+# Cache & tooling
+# =========================
+.eslintcache
+.stylelintcache
+.cache/
+.vite/
+.turbo/
+
+# =========================
+# Misc
+# =========================
+*.tgz
+*.log
