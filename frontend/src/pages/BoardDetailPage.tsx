@@ -1,3 +1,4 @@
+// 🔢 1️⃣ START: Full BoardDetailPage with Drag-and-Drop Persistence
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
@@ -7,129 +8,82 @@ import { BoardColumn } from "../components/board-view/BoardColumn";
 import { BoardListView } from "../components/board-view/BoardListView";
 import type { BoardTask } from "../components/board-view/BoardTaskCard";
 import { Icons } from "../components/ui/Icons";
-import type { Board } from "../components/boards/BoardCard";
 import { InviteModal } from "../components/modals/InviteModal";
+import { boardService } from "../services/board.service";
+import type { Board } from "../services/board.service";
 
 interface BoardDetailPageProps {
-  onLogout: () => void;
-  boards: Board[];
+  // No props needed as DashboardLayout handles auth internally
 }
 
-// Initial Mock Columns for a Standard Kanban Board
-const DEFAULT_KANBAN_COLUMNS = [
-  {
-    id: "c1",
-    title: "To Do",
-    tasks: [
-      {
-        id: "t1",
-        title: "Research competitor analysis",
-        priority: "high",
-        tag: "Strategy",
-        dueDate: "2023-11-15",
-        assignee: "AM",
-      },
-      {
-        id: "t2",
-        title: "Draft initial wireframes",
-        priority: "medium",
-        dueDate: "2023-11-20",
-        assignee: "SC",
-      },
-    ] as BoardTask[],
-  },
-  {
-    id: "c2",
-    title: "In Progress",
-    tasks: [
-      {
-        id: "t3",
-        title: "Set up project repository",
-        priority: "high",
-        tag: "Dev",
-        assignee: "MR",
-      },
-    ] as BoardTask[],
-  },
-  {
-    id: "c3",
-    title: "Review",
-    tasks: [
-      {
-        id: "t4",
-        title: "Update dependency packages",
-        priority: "low",
-        tag: "Maintenance",
-        dueDate: "2023-10-25",
-        assignee: "JD",
-        isCompleted: false,
-      },
-    ] as BoardTask[],
-  },
-  {
-    id: "c4",
-    title: "Done",
-    tasks: [
-      {
-        id: "t5",
-        title: "Project kickoff meeting",
-        tag: "Meeting",
-        isCompleted: true,
-      },
-    ] as BoardTask[],
-  },
-];
-
-export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
-  onLogout,
-  boards,
-}) => {
+export const BoardDetailPage: React.FC<BoardDetailPageProps> = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const board = boards.find((b) => b.id === id);
 
-  // Initialize columns logic
-  const getInitialColumns = () => {
-    if (!board) return [];
-    if (board.id === "1") return DEFAULT_KANBAN_COLUMNS;
-
-    switch (board.template) {
-      case "blank":
-        return [];
-      case "tasks":
-        return [
-          { id: "c1", title: "To Do", tasks: [] },
-          { id: "c2", title: "Done", tasks: [] },
-        ];
-      case "kanban":
-      default:
-        return [
-          { id: "c1", title: "To Do", tasks: [] },
-          { id: "c2", title: "In Progress", tasks: [] },
-          { id: "c3", title: "Review", tasks: [] },
-          { id: "c4", title: "Done", tasks: [] },
-        ];
-    }
-  };
-
-  const [columns, setColumns] = useState(getInitialColumns);
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    board?.template === "tasks" ? "list" : "board"
-  );
+  const [board, setBoard] = useState<Board | null>(null);
+  const [columns, setColumns] = useState<
+    { id: string; title: string; tasks: BoardTask[] }[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("board");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
 
-  // Reset state when board changes
+  // Fetch Board Data
   useEffect(() => {
-    if (board) {
-      setColumns(getInitialColumns());
-      setViewMode(board.template === "tasks" ? "list" : "board");
-    }
-  }, [board?.id]);
+    const fetchBoard = async () => {
+      if (!id) return;
+      try {
+        setIsLoading(true);
+        const data = await boardService.getById(id);
 
+        setBoard(data);
+        setViewMode(data.template === "tasks" ? "list" : "board");
+
+        if (data.columns && data.columns.length > 0) {
+          setColumns(
+            data.columns.map((col: any) => ({
+              id: col.id,
+              title: col.title,
+              // Map backend task to frontend BoardTask
+              tasks: (col.tasks || []).map((t: any) => ({
+                id: t.id,
+                title: t.title,
+                // Simple logic: if in "Done" column, mark completed
+                isCompleted: col.title === "Done",
+                // You can add priority mapping here if backend supports it later
+              })),
+            }))
+          );
+        } else {
+          setColumns([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch board:", error);
+        setBoard(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBoard();
+  }, [id]);
+
+  // Loading State
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Not Found State
   if (!board) {
     return (
-      <DashboardLayout onLogout={onLogout}>
+      <DashboardLayout>
         <div className="flex items-center justify-center h-full py-20">
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -151,36 +105,55 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
     );
   }
 
-  const handleAddTask = (columnId: string, title: string) => {
-    const isDoneColumn =
-      columns.find((c) => c.id === columnId)?.title === "Done";
-    const newTask: BoardTask = {
-      id: Date.now().toString(),
-      title,
-      isCompleted: isDoneColumn,
-    };
+  // --- Handlers ---
 
-    setColumns((prev) =>
-      prev.map((col) => {
-        if (col.id === columnId) {
-          return { ...col, tasks: [...col.tasks, newTask] };
-        }
-        return col;
-      })
-    );
+  const handleAddTask = async (columnId: string, title: string) => {
+    try {
+      // 1. Call API
+      const newTask = await boardService.addTask(columnId, title);
+
+      // 2. Optimistic Update
+      const isDoneColumn =
+        columns.find((c) => c.id === columnId)?.title === "Done";
+
+      const frontendTask: BoardTask = {
+        id: newTask.id,
+        title: newTask.title,
+        isCompleted: isDoneColumn,
+      };
+
+      setColumns((prev) =>
+        prev.map((col) => {
+          if (col.id === columnId) {
+            return { ...col, tasks: [...col.tasks, frontendTask] };
+          }
+          return col;
+        })
+      );
+    } catch (error) {
+      console.error("Failed to create task", error);
+      alert("Failed to create task");
+    }
   };
 
   const handleTaskClick = (taskId: string) => {
     console.log("Open task detail:", taskId);
   };
 
-  const handleAddList = () => {
-    const newColumn = {
-      id: `c-${Date.now()}`,
-      title: "New List",
-      tasks: [],
-    };
-    setColumns([...columns, newColumn]);
+  const handleAddList = async () => {
+    try {
+      const title = "New List";
+      if (!board.id) return;
+
+      const newCol = await boardService.addList(board.id, title);
+
+      setColumns([
+        ...columns,
+        { id: newCol.id, title: newCol.title, tasks: [] },
+      ]);
+    } catch (error) {
+      console.error("Failed to add list", error);
+    }
   };
 
   const handleInvite = () => {
@@ -192,6 +165,8 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
     setIsInviteModalOpen(true);
   };
 
+  // --- Drag and Drop Logic ---
+
   const onTaskDragStart = (
     e: React.DragEvent,
     taskId: string,
@@ -202,7 +177,7 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const onTaskDrop = (
+  const onTaskDrop = async (
     e: React.DragEvent,
     targetColumnId: string,
     targetTaskId?: string
@@ -212,6 +187,7 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
 
     if (!taskId || !sourceColumnId) return;
 
+    // 1. Create a deep copy for Optimistic UI Update
     const newColumns = columns.map((col) => ({
       ...col,
       tasks: [...col.tasks],
@@ -222,40 +198,59 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
 
     if (!sourceCol || !targetCol) return;
 
+    // Find and remove task from source
     const taskIndex = sourceCol.tasks.findIndex((t) => t.id === taskId);
     if (taskIndex === -1) return;
     const [movedTask] = sourceCol.tasks.splice(taskIndex, 1);
 
+    // Update 'isCompleted' based on target column
     if (targetCol.title === "Done") {
       movedTask.isCompleted = true;
-    } else {
+    } else if (targetCol.title !== "Done" && movedTask.isCompleted) {
       movedTask.isCompleted = false;
     }
+
+    // Calculate New Index (Order)
+    let newIndex = targetCol.tasks.length; // Default to end of list
 
     if (targetTaskId) {
       const targetIndex = targetCol.tasks.findIndex(
         (t) => t.id === targetTaskId
       );
       if (targetIndex !== -1) {
+        // Insert before target task
         targetCol.tasks.splice(targetIndex, 0, movedTask);
+        newIndex = targetIndex;
       } else {
         targetCol.tasks.push(movedTask);
       }
     } else {
+      // Dropped on column header or empty space
       targetCol.tasks.push(movedTask);
     }
 
+    // 2. Update State Immediately (Optimistic)
     setColumns(newColumns);
+
+    // 3. Persist to Backend
+    try {
+      await boardService.moveTask(taskId, targetColumnId, newIndex);
+    } catch (error) {
+      console.error("Failed to save move:", error);
+      alert("Failed to save task position. The board will refresh.");
+      // Revert changes by reloading or re-fetching
+      window.location.reload();
+    }
   };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-      <DashboardLayout onLogout={onLogout} fullWidth={true}>
+      <DashboardLayout fullWidth={true}>
         <div className="flex flex-col h-[calc(100vh-4rem)] -m-4 sm:-m-6 lg:-m-8">
           <BoardHeader
-            title={board.title}
-            description={board.description}
-            teamName="Product Engineering"
+            title={board.name}
+            description={board.description || ""}
+            teamName="Private Board"
             onBack={() => navigate("/boards")}
             viewMode={viewMode}
             onViewChange={setViewMode}
@@ -346,7 +341,7 @@ export const BoardDetailPage: React.FC<BoardDetailPageProps> = ({
         <InviteModal
           isOpen={isInviteModalOpen}
           onClose={() => setIsInviteModalOpen(false)}
-          entityName={board.title}
+          entityName={board.name}
           entityType="board"
           inviteCode={inviteCode}
         />

@@ -4,15 +4,13 @@ import { Input } from "../ui/Input";
 import { TextArea } from "../ui/TextArea";
 import { Button } from "../ui/Button";
 import { Icons } from "../ui/Icons";
+import { boardService } from "../../services/board.service";
 
 interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (board: {
-    name: string;
-    description: string;
-    template: string;
-  }) => void;
+  // Updated signature to return the full board object
+  onCreate: (board: any) => void;
 }
 
 const TEMPLATES = [
@@ -47,7 +45,6 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset state when opening
   React.useEffect(() => {
     if (isOpen) {
       setName("");
@@ -58,7 +55,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError("Board name is required");
@@ -66,18 +63,41 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     }
 
     setIsSubmitting(true);
-    // Simulate network delay
-    setTimeout(() => {
-      onCreate({ name, description, template: selectedTemplate });
-      setIsSubmitting(false);
+    setError("");
+
+    try {
+      // 1. Call Backend
+      const newBoard = await boardService.create({
+        name,
+        description,
+        template: selectedTemplate,
+      });
+
+      // 2. Pass result up to parent
+      onCreate(newBoard);
       onClose();
-    }, 800);
+    } catch (err: any) {
+      console.error("Failed to create board:", err);
+      // Handle Validation Errors
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("Failed to create board. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Board">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Name Input */}
+        {error && (
+          <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-md">
+            {error}
+          </div>
+        )}
+
         <Input
           id="board-name"
           label="Board Name"
@@ -91,7 +111,6 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
           autoFocus
         />
 
-        {/* Description Input */}
         <TextArea
           id="board-description"
           label="Description (Optional)"
@@ -101,7 +120,6 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
           rows={3}
         />
 
-        {/* Template Selection */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Choose a Template
@@ -143,7 +161,6 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button
             type="button"

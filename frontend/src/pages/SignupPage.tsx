@@ -1,18 +1,25 @@
 import React, { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
+import { authService } from "../services/auth.service";
+import { useAuth } from "../context/AuthContext"; // Import Context
 
 interface SignupPageProps {
   onLogin?: () => void;
 }
 
-export const SignupPage: React.FC<SignupPageProps> = ({ onLogin }) => {
+export const SignupPage: React.FC<SignupPageProps> = () => {
+  const { login } = useAuth(); // Destructure login
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string>("");
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,9 +30,8 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onLogin }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    if (generalError) setGeneralError("");
   };
 
   const validate = () => {
@@ -50,6 +56,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onLogin }) => {
     e.preventDefault();
     setIsLoading(true);
     setErrors({});
+    setGeneralError("");
 
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
@@ -58,16 +65,36 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onLogin }) => {
       return;
     }
 
-    setTimeout(() => {
-      // Logic would typically go here to create account
-      // For demo, we just log them in
-      if (onLogin) {
-        onLogin();
+    try {
+      const response = await authService.signup({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // FIX: Use context login method
+      login(response.token, response.user);
+
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Signup failed:", err);
+      if (isAxiosError(err) && err.response?.data?.errors) {
+        // Handle Zod backend errors
+        const backendErrors: Record<string, string> = {};
+        err.response.data.errors.forEach(
+          (e: { field: string; message: string }) => {
+            backendErrors[e.field] = e.message;
+          }
+        );
+        setErrors(backendErrors);
+      } else if (err.response?.data?.message) {
+        setGeneralError(err.response.data.message);
       } else {
-        navigate("/dashboard");
+        setGeneralError("Failed to create account. Please try again.");
       }
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -86,6 +113,12 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onLogin }) => {
       }
     >
       <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        {generalError && (
+          <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-md">
+            {generalError}
+          </div>
+        )}
+
         <Input
           id="name"
           name="name"

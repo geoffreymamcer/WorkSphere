@@ -1,17 +1,23 @@
 import React, { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { ForgotPasswordModal } from "../components/modals/ForgotPasswordModal";
+import { authService } from "../services/auth.service";
+import { useAuth } from "../context/AuthContext"; // Import Context
 
 interface LoginPageProps {
   onLogin?: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+export const LoginPage: React.FC<LoginPageProps> = () => {
+  // Get the login function from context
+  const { login } = useAuth();
   const navigate = useNavigate();
+
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
@@ -27,7 +33,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof typeof errors]) {
+    if (errors[name as keyof typeof errors] || errors.form) {
       setErrors((prev) => ({ ...prev, [name]: undefined, form: undefined }));
     }
   };
@@ -47,21 +53,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      if (formData.password === "fail") {
-        setErrors({ form: "Invalid email or password" });
-      } else {
-        // Successful login
-        if (onLogin) {
-          onLogin();
-        } else {
-          // Fallback if no callback
-          navigate("/dashboard");
+    try {
+      const response = await authService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // FIX: Update global state instead of just localStorage
+      // This triggers the App re-render and redirects you immediately
+      login(response.token, response.user);
+
+      // Navigate explicitly (optional, as App.tsx often handles the redirect)
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Login failed:", err);
+      let errorMessage = "Failed to sign in. Please try again.";
+
+      if (isAxiosError(err) && err.response) {
+        if (err.response.status === 401) {
+          errorMessage = "Invalid email or password";
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
         }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
+
+      setErrors({ form: errorMessage });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

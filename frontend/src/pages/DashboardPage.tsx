@@ -15,17 +15,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const handleCreateBoard = (data: {
-    name: string;
-    description: string;
-    template: string;
-  }) => {
-    // In a real application, this would call an API or update global state
-    console.log("New board created:", data);
+  // Updated: Navigate to the new board immediately after creation
+  const handleCreateBoard = (newBoard: any) => {
+    navigate(`/boards/${newBoard.id}`);
   };
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout>
       {/* Page Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>

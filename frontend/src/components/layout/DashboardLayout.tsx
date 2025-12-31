@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { Logo } from "../ui/Logo";
 import { Icons } from "../ui/Icons";
 
@@ -8,8 +9,6 @@ export type NavPage = "dashboard" | "boards" | "tasks" | "teams" | "settings";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  userEmail?: string;
-  onLogout: () => void;
   fullWidth?: boolean;
 }
 
@@ -38,44 +37,32 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-interface Notification {
-  id: string;
-  text: string;
-  time: string;
-  isRead: boolean;
-  type: "alert" | "message" | "task";
-}
-
-const DUMMY_NOTIFICATIONS: Notification[] = [
+const DUMMY_NOTIFICATIONS = [
   {
     id: "1",
     text: 'Sarah Chen commented on "Website Redesign"',
     time: "5m ago",
     isRead: false,
-    type: "message",
   },
   {
     id: "2",
     text: 'New task assigned: "Q4 Budget Review"',
     time: "1h ago",
     isRead: false,
-    type: "task",
   },
   {
     id: "3",
     text: 'Mike Ross completed "Update dependencies"',
     time: "2h ago",
     isRead: true,
-    type: "alert",
   },
 ];
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
-  userEmail = "alex@worksphere.com",
-  onLogout,
   fullWidth = false,
 }) => {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -86,31 +73,42 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Determine current page based on path for header title
-  // For the sidebar, NavLink handles active state automatically
   const currentPath = location.pathname;
   const currentTitle =
     NAV_ITEMS.find((item) => currentPath.startsWith(item.path))?.label ||
     "Dashboard";
 
-  // Close dropdowns when clicking outside
+  // Helpers for user display
+  const userDisplayName = user?.name || "User";
+  const userDisplayEmail = user?.email || "loading...";
+  const userInitials = user?.name
+    ? user.name.slice(0, 2).toUpperCase()
+    : user?.email?.slice(0, 2).toUpperCase() || "??";
+
+  // Handle closing dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
+      // Close Notification Dropdown if clicking outside
       if (
         activeDropdown === "notifications" &&
         notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
+        !notificationRef.current.contains(target)
       ) {
         setActiveDropdown(null);
       }
+
+      // Close User Dropdown if clicking outside
       if (
         activeDropdown === "user" &&
         userMenuRef.current &&
-        !userMenuRef.current.contains(event.target as Node)
+        !userMenuRef.current.contains(target)
       ) {
         setActiveDropdown(null);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -118,11 +116,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   }, [activeDropdown]);
 
   const toggleDropdown = (menu: "notifications" | "user") => {
-    if (activeDropdown === menu) {
-      setActiveDropdown(null);
-    } else {
-      setActiveDropdown(menu);
-    }
+    // If clicking the same menu, close it. If clicking different, open that one.
+    setActiveDropdown((prev) => (prev === menu ? null : menu));
   };
 
   return (
@@ -135,7 +130,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         />
       )}
 
-      {/* Sidebar Navigation */}
+      {/* Sidebar */}
       <aside
         className={`
         fixed top-0 left-0 bottom-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:block
@@ -143,12 +138,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       `}
       >
         <div className="h-full flex flex-col">
-          {/* Logo Area */}
           <div className="h-16 flex items-center px-6 border-b border-gray-100 dark:border-gray-700">
             <Logo className="dark:text-white" />
           </div>
 
-          {/* Navigation Items */}
           <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
             {NAV_ITEMS.map((item) => (
               <NavLink
@@ -183,10 +176,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             ))}
           </nav>
 
-          {/* Bottom Actions */}
           <div className="p-4 border-t border-gray-100 dark:border-gray-700">
             <button
-              onClick={onLogout}
+              onClick={logout}
               className="flex w-full items-center px-3 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 transition-colors group"
             >
               <Icons.Logout className="mr-3 h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-red-500 dark:group-hover:text-red-400" />
@@ -197,11 +189,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
+      {/* Removed overflow-hidden from here to prevent clipping dropdowns if they get too long */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm z-20 relative transition-colors duration-200">
           <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            {/* Left: Mobile Toggle & Page Title */}
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -215,21 +207,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </h1>
             </div>
 
-            {/* Right: Search & Profile */}
             <div className="flex items-center gap-4 sm:gap-6">
-              {/* Search Bar */}
-              <div className="hidden sm:block relative max-w-xs w-full">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Icons.Search className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="block w-64 pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg leading-5 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-1 focus:ring-[#4F46E5] focus:border-[#4F46E5] sm:text-sm transition-all"
-                />
-              </div>
-
-              {/* Notifications Dropdown */}
+              {/* Notification Dropdown */}
               <div className="relative" ref={notificationRef}>
                 <button
                   onClick={() => toggleDropdown("notifications")}
@@ -247,7 +226,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 </button>
 
                 {activeDropdown === "notifications" && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden z-30">
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-gray-50 dark:border-gray-700 flex justify-between items-center">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                         Notifications
@@ -297,7 +276,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
               <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1" />
 
-              {/* Profile Dropdown */}
+              {/* User Dropdown */}
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => toggleDropdown("user")}
@@ -312,27 +291,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 >
                   <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-gray-900 dark:text-white leading-none">
-                      Alex Morgan
+                      {userDisplayName}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-none">
-                      {userEmail}
+                      {userDisplayEmail}
                     </p>
                   </div>
                   <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-[#4F46E5] to-indigo-400 flex items-center justify-center text-white font-medium text-sm shadow-sm ring-2 ring-white dark:ring-gray-800">
-                    AM
+                    {userInitials}
                   </div>
                 </button>
 
                 {activeDropdown === "user" && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-30 overflow-hidden text-sm">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 overflow-hidden text-sm">
                     <div className="px-4 py-3 border-b border-gray-50 dark:border-gray-700 md:hidden">
                       <p className="font-medium text-gray-900 dark:text-white">
-                        Alex Morgan
+                        {userDisplayName}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {userEmail}
+                        {userDisplayEmail}
                       </p>
                     </div>
+
+                    {/* RESTORED MENU ITEMS */}
                     <div className="py-1">
                       <button
                         onClick={() => {
@@ -355,9 +336,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         Settings
                       </button>
                     </div>
+
                     <div className="py-1 border-t border-gray-50 dark:border-gray-700">
                       <button
-                        onClick={onLogout}
+                        onClick={logout}
                         className="flex w-full items-center px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400"
                       >
                         <Icons.Logout className="mr-3 h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-red-600" />
@@ -371,7 +353,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </header>
 
-        {/* Scrollable Main Content */}
+        {/* Content */}
         <main className="flex-1 overflow-y-auto focus:outline-none bg-gray-50/50 dark:bg-gray-900">
           <div
             className={`py-8 px-4 sm:px-6 lg:px-8 mx-auto ${
