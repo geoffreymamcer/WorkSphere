@@ -4,9 +4,10 @@ import { Icons } from "../ui/Icons";
 export interface BoardTask {
   id: string;
   title: string;
-  priority?: "high" | "medium" | "low";
+  description?: string; // Added description to interface to match usage
+  priority?: "high" | "medium" | "low"; // Removed loose string type
   dueDate?: string;
-  assignee?: string; // Initials or URL
+  assignee?: { id: string; name: string | null; email: string };
   tag?: string;
   isCompleted?: boolean;
 }
@@ -26,6 +27,12 @@ export const BoardTaskCard: React.FC<BoardTaskCardProps> = ({
   onDragOver,
   onDrop,
 }) => {
+  // Helper to safely get initials
+  const getInitials = (user: { name: string | null; email: string }) => {
+    const source = user.name || user.email || "?";
+    return source.substring(0, 2).toUpperCase();
+  };
+
   return (
     <div
       draggable={!!onDragStart}
@@ -103,9 +110,18 @@ export const BoardTaskCard: React.FC<BoardTaskCardProps> = ({
           )}
         </div>
 
-        {task.assignee && (
-          <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold ring-2 ring-white dark:ring-gray-800">
-            {task.assignee}
+        {/* FIX: Render Object Safely */}
+        {task.assignee ? (
+          <div
+            className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold ring-2 ring-white dark:ring-gray-800"
+            title={task.assignee.name || task.assignee.email}
+          >
+            {getInitials(task.assignee)}
+          </div>
+        ) : (
+          // Optional: Show empty user icon if unassigned
+          <div className="h-6 w-6 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400">
+            <Icons.User className="w-3 h-3" />
           </div>
         )}
       </div>

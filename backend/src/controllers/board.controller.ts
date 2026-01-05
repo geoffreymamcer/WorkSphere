@@ -3,6 +3,17 @@ import { boardService } from "../services/board.service";
 import { createBoardSchema } from "../validators/board.schema";
 
 export const boardController = {
+  getMembers: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.userId;
+      const { boardId } = req.params; // Make sure route param matches
+      const members = await boardService.getBoardMembers(userId, boardId);
+      res.status(200).json(members);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   create: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsedBody = createBoardSchema.parse(req.body);

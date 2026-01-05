@@ -6,6 +6,7 @@ import listRoutes from "./routes/list.routes";
 import taskRoutes from "./routes/task.routes";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { authenticate } from "./middleware/auth.middleware";
+import inviteRoutes from "./routes/invite.routes";
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use(authenticate);
 app.use("/boards", boardRoutes);
 app.use("/lists", listRoutes);
 app.use("/tasks", taskRoutes);
+app.use("/invites", inviteRoutes);
 
 export default app;

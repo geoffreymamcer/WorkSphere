@@ -6,6 +6,9 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get("/my", taskController.getMyTasks);
 router.patch("/:taskId/move", taskController.move);
+router.patch("/:taskId/assign", taskController.assign);
+router.patch("/:taskId", taskController.update);
 
 export default router;

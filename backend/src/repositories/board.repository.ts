@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { Prisma, Board } from "../generated/prisma/client.js";
+import { Prisma, Board, BoardMember } from "../generated/prisma/client.js";
 
 export const boardRepository = {
   create: async (
@@ -25,20 +25,31 @@ export const boardRepository = {
   },
 
   findById: async (id: string, userId: string): Promise<Board | null> => {
-    return prisma.board.findUnique({
+    return prisma.board.findFirst({
       where: {
         id,
-        ownerId: userId,
+        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
       },
       include: {
-        columns: {
-          orderBy: {
-            order: "asc",
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        members: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true },
+            },
           },
+        },
+        columns: {
+          orderBy: { order: "asc" },
           include: {
             tasks: {
-              orderBy: {
-                order: "asc",
+              orderBy: { order: "asc" },
+              include: {
+                assignee: {
+                  select: { id: true, name: true, email: true },
+                },
               },
             },
           },
@@ -46,14 +57,65 @@ export const boardRepository = {
       },
     });
   },
+
+  getMembers: async (boardId: string) => {
+    return prisma.boardMember.findMany({
+      where: { boardId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  },
+
   findAllByUserId: async (userId: string): Promise<Board[]> => {
     return prisma.board.findMany({
       where: {
-        ownerId: userId,
+        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
       },
-      orderBy: {
-        createdAt: "desc",
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  addMember: async (
+    boardId: string,
+    userId: string,
+    role: string = "MEMBER"
+  ): Promise<BoardMember> => {
+    return prisma.boardMember.create({
+      data: {
+        boardId,
+        userId,
+        role,
       },
     });
+  },
+
+  isMember: async (boardId: string, userId: string): Promise<boolean> => {
+    const member = await prisma.boardMember.findFirst({
+      where: {
+        boardId: boardId,
+        userId: userId,
+      },
+    });
+    return !!member;
+  },
+
+  findRawById: async (id: string): Promise<Board | null> => {
+    return prisma.board.findUnique({ where: { id } });
+  },
+  hasAccess: async (boardId: string, userId: string): Promise<boolean> => {
+    const count = await prisma.board.count({
+      where: {
+        id: boardId,
+        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+      },
+    });
+    return count > 0;
   },
 };

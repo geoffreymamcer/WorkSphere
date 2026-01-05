@@ -31,6 +31,25 @@ export const boardService = {
     return board;
   },
 
+  getBoardMembers: async (userId: string, boardId: string) => {
+    // 1. Check Access
+    const hasAccess = await boardRepository.hasAccess(boardId, userId);
+    if (!hasAccess) throw new AppError("Unauthorized", 403);
+
+    // 2. Fetch Members
+    const members = await boardRepository.getMembers(boardId);
+
+    // 3. Include Owner (since they aren't always in boardMembers table depending on logic, but usually should be handled.
+    // For simplicity, we assume members table has invited people. Owner details might need separate fetch if not in members table.
+    // Ideally, owner should be added to members table on creation, but let's fetch owner too just in case.)
+    const board = await boardRepository.findRawById(boardId);
+
+    // Determine the result list
+    // Note: If you want the Owner to appear in the list, you might need to fetch the owner user details via a userRepository if not already in members.
+    // For this specific request, let's return the members list.
+    return members;
+  },
+
   // NEW METHOD
   getBoard: async (userId: string, boardId: string) => {
     const board = await boardRepository.findById(boardId, userId);

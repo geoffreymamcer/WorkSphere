@@ -65,12 +65,10 @@ export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
     filter === "all" ? boards : boards.filter((b) => b.isFavorite);
 
   const handleJoinBoard = async (code: string) => {
-    // Keep simulation for now
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        resolve();
-      }, 1000);
-    });
+    const result = await boardService.acceptInvite(code);
+
+    // Navigate to the joined board
+    navigate(`/boards/${result.boardId}`);
   };
 
   // Updated to receive the full board object from the modal

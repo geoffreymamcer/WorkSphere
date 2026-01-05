@@ -1,136 +1,104 @@
-import React, { useState } from "react";
+// 🔢 8️⃣ START: Use Real Data in Tasks Page
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { TaskRow } from "../components/tasks/TaskRow";
-import type { Task } from "../components/tasks/TaskRow";
 import { Icons } from "../components/ui/Icons";
+import { boardService } from "../services/board.service";
+import type { MyTask } from "../services/board.service";
 
-interface TasksPageProps {
-  onLogout: () => void;
-}
+interface TasksPageProps {}
 
-const TODAY_STR = "2023-10-25";
-
-const DUMMY_TASKS: Task[] = [
-  {
-    id: "1",
-    title: "Review Q4 Budget Proposal",
-    boardName: "Finance Review",
-    dueDate: "2023-10-23",
-    priority: "high",
-    isCompleted: false,
-  },
-  {
-    id: "2",
-    title: "Update Client Slide Deck",
-    boardName: "Sales Pipeline",
-    dueDate: "2023-10-24",
-    priority: "medium",
-    isCompleted: false,
-  },
-  {
-    id: "3",
-    title: "Team Sync Agenda",
-    boardName: "Weekly Operations",
-    dueDate: "2023-10-25",
-    priority: "medium",
-    isCompleted: false,
-  },
-  {
-    id: "4",
-    title: "Submit Expense Report",
-    boardName: "Admin",
-    dueDate: "2023-10-25",
-    priority: "low",
-    isCompleted: false,
-  },
-  {
-    id: "5",
-    title: "Draft Newsletter Content",
-    boardName: "Marketing",
-    dueDate: "2023-10-25",
-    priority: "high",
-    isCompleted: false,
-  },
-  {
-    id: "6",
-    title: "Prepare for Design Critique",
-    boardName: "Website Redesign",
-    dueDate: "2023-10-27",
-    priority: "medium",
-    isCompleted: false,
-  },
-  {
-    id: "7",
-    title: "Quarterly Goals Review",
-    boardName: "Executive",
-    dueDate: "2023-10-30",
-    priority: "high",
-    isCompleted: false,
-  },
-  {
-    id: "8",
-    title: "Update dependencies",
-    boardName: "Tech Debt",
-    dueDate: "2023-10-20",
-    priority: "low",
-    isCompleted: true,
-  },
-];
-
-export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
+export const TasksPage: React.FC<TasksPageProps> = () => {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState<Task[]>(DUMMY_TASKS);
+  const [tasks, setTasks] = useState<MyTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "today" | "upcoming" | "completed"
   >("all");
 
-  const handleToggle = (id: string) => {
+  // Fetch real tasks
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        setLoading(true);
+        const data = await boardService.getMyTasks();
+        setTasks(data);
+      } catch (error) {
+        console.error("Failed to load tasks", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTasks();
+  }, []);
+
+  const handleToggle = async (id: string) => {
+    // Optimistic Toggle
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, isCompleted: !t.isCompleted } : t))
     );
+    // Note: To persist this properly, we need to know the 'Done' column ID, which isn't easily available here without fetching board details.
+    // For now, this is a visual toggle. Real persistence would require a specific 'completeTask' API or moving logic.
   };
 
-  const getGroupedTasks = () => {
-    let filtered = tasks;
-
+  const getFilteredTasks = () => {
     if (filter === "completed") {
-      filtered = tasks.filter((t) => t.isCompleted);
-    } else {
-      filtered = tasks.filter((t) => !t.isCompleted);
+      return tasks.filter((t) => t.isCompleted);
     }
+
+    const active = tasks.filter((t) => !t.isCompleted);
 
     if (filter === "today") {
-      filtered = filtered.filter((t) => t.dueDate === TODAY_STR);
-    } else if (filter === "upcoming") {
-      filtered = filtered.filter((t) => t.dueDate > TODAY_STR);
+      return active.filter(
+        (t) => t.status === "today" || t.status === "overdue"
+      );
     }
-
-    const overdue = filtered.filter((t) => t.dueDate < TODAY_STR);
-    const today = filtered.filter((t) => t.dueDate === TODAY_STR);
-    const upcoming = filtered.filter((t) => t.dueDate > TODAY_STR);
-    const noDate = filtered.filter((t) => !t.dueDate);
-
-    return { overdue, today, upcoming, noDate };
+    if (filter === "upcoming") {
+      return active.filter((t) => t.status === "upcoming");
+    }
+    return active;
   };
 
-  const groups = getGroupedTasks();
-  const isViewEmpty =
-    groups.overdue.length === 0 &&
-    groups.today.length === 0 &&
-    groups.upcoming.length === 0 &&
-    groups.noDate.length === 0;
+  const displayedTasks = getFilteredTasks();
+
+  // Grouping for "All" view
+  const overdueTasks =
+    filter === "all"
+      ? displayedTasks.filter((t) => t.status === "overdue")
+      : [];
+  const todayTasks =
+    filter === "all" ? displayedTasks.filter((t) => t.status === "today") : [];
+  const otherTasks =
+    filter === "all"
+      ? displayedTasks.filter(
+          (t) => t.status !== "overdue" && t.status !== "today"
+        )
+      : displayedTasks;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const isViewEmpty = displayedTasks.length === 0;
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-8">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-100 dark:border-gray-700 pb-6 transition-colors">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
               My Tasks
             </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {new Date(TODAY_STR).toLocaleDateString("en-US", {
+              {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -163,6 +131,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
           </div>
         </div>
 
+        {/* Content */}
         <div className="space-y-10 min-h-[400px]">
           {isViewEmpty && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -173,31 +142,21 @@ export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
                 All caught up
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
-                {filter === "completed"
-                  ? "You haven't completed any tasks yet."
-                  : "No tasks found for this view. Enjoy your day!"}
+                No tasks found for this view.
               </p>
-              {filter !== "all" && (
-                <button
-                  onClick={() => setFilter("all")}
-                  className="mt-4 text-sm font-medium text-[#4F46E5] hover:text-[#4338CA] dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  View all tasks
-                </button>
-              )}
             </div>
           )}
 
-          {!isViewEmpty && (
+          {!isViewEmpty && filter === "all" ? (
             <>
-              {groups.overdue.length > 0 && (
+              {overdueTasks.length > 0 && (
                 <section>
                   <header className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">
                     <Icons.Clock className="w-4 h-4" />
                     Overdue
                   </header>
                   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 transition-colors">
-                    {groups.overdue.map((task) => (
+                    {overdueTasks.map((task) => (
                       <TaskRow
                         key={task.id}
                         task={task}
@@ -209,14 +168,14 @@ export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
                 </section>
               )}
 
-              {groups.today.length > 0 && (
+              {todayTasks.length > 0 && (
                 <section>
                   <header className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     <span className="h-2 w-2 rounded-full bg-[#4F46E5] dark:bg-indigo-400"></span>
                     Due Today
                   </header>
                   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 transition-colors">
-                    {groups.today.map((task) => (
+                    {todayTasks.map((task) => (
                       <TaskRow
                         key={task.id}
                         task={task}
@@ -228,13 +187,13 @@ export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
                 </section>
               )}
 
-              {groups.upcoming.length > 0 && (
+              {otherTasks.length > 0 && (
                 <section>
                   <header className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Upcoming
+                    Tasks
                   </header>
                   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 transition-colors">
-                    {groups.upcoming.map((task) => (
+                    {otherTasks.map((task) => (
                       <TaskRow
                         key={task.id}
                         task={task}
@@ -245,9 +204,19 @@ export const TasksPage: React.FC<TasksPageProps> = ({ onLogout }) => {
                 </section>
               )}
             </>
+          ) : (
+            // Flat list for other filters
+            !isViewEmpty && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 transition-colors">
+                {displayedTasks.map((task) => (
+                  <TaskRow key={task.id} task={task} onToggle={handleToggle} />
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
     </DashboardLayout>
   );
 };
+// 🔢 8️⃣ END: Use Real Data in Tasks Page

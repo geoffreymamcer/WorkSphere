@@ -124,7 +124,7 @@ export const JoinModal: React.FC<JoinModalProps> = ({
             error={error}
             autoFocus={!entityDetails} // Auto-focus if we aren't distracting with entity details
             disabled={isLoading || isSuccess}
-            maxLength={20}
+            maxLength={100}
             className="uppercase tracking-wider font-mono"
           />
         </div>

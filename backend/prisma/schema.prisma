@@ -14,8 +14,24 @@ model User {
   password  String
   createdAt DateTime @default(now())
 
-  boards    Board[]
+  boards           Board[]
+  boardMemberships BoardMember[] 
+  
+  assignedTasks    Task[]
 }
+
+model BoardMember {
+  id        String   @id @default(uuid())
+  boardId   String
+  userId    String
+  role      String   @default("MEMBER") // 'OWNER' | 'MEMBER'
+  createdAt DateTime @default(now())
+
+  board     Board    @relation(fields: [boardId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([boardId, userId]) // Prevent duplicate membership
+}  
 
 model Board {
   id          String   @id @default(uuid())
@@ -28,6 +44,20 @@ model Board {
   updatedAt   DateTime @updatedAt
 
   columns     Column[]
+   members     BoardMember[]
+  invites     BoardInvite[]
+}
+
+model BoardInvite {
+  id        String   @id @default(uuid())
+  boardId   String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  board     Board    @relation(fields: [boardId], references: [id])
 }
 
 model Column {
@@ -44,9 +74,16 @@ model Task {
   id          String   @id @default(uuid())
   title       String
   description String?
+  priority    String?
+  dueDate     DateTime?
   order       Int
   columnId    String
   column      Column   @relation(fields: [columnId], references: [id])
+  
+  // New Field
+  assigneeId  String?
+  assignee    User?    @relation(fields: [assigneeId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
