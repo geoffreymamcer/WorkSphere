@@ -18,6 +18,8 @@ model User {
   boardMemberships BoardMember[] 
   
   assignedTasks    Task[]
+  teamMemberships  TeamMember[]
+
 }
 
 model BoardMember {
@@ -38,15 +40,46 @@ model Board {
   name        String
   description String?
   template    String
-  ownerId     String
+  ownerId     String   // User who created it
+  teamId      String?  // Optional relation to Team
+  
   owner       User     @relation(fields: [ownerId], references: [id])
+  team        Team?    @relation(fields: [teamId], references: [id]) // Relation
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   columns     Column[]
-   members     BoardMember[]
+  members     BoardMember[]
   invites     BoardInvite[]
 }
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ownerId     String   // Creator
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     TeamMember[]
+  boards      Board[]
+  inviteCodes TeamInviteCode[]
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  role      String   @default("MEMBER") // 'OWNER' | 'MEMBER'
+  createdAt DateTime @default(now())
+
+  team      Team     @relation(fields: [teamId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
 
 model BoardInvite {
   id        String   @id @default(uuid())
@@ -86,4 +119,14 @@ model Task {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model TeamInviteCode {
+  id        String   @id @default(uuid())
+  teamId    String
+  code      String   @unique
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  team      Team     @relation(fields: [teamId], references: [id])
 }

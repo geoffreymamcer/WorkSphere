@@ -18,7 +18,9 @@ export const boardController = {
     try {
       const parsedBody = createBoardSchema.parse(req.body);
       const userId = req.user!.userId;
+
       const board = await boardService.createBoard(userId, parsedBody);
+
       res.status(201).json(board);
     } catch (error) {
       next(error);

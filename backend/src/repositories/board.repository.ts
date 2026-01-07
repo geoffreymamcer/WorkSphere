@@ -28,18 +28,16 @@ export const boardRepository = {
     return prisma.board.findFirst({
       where: {
         id,
-        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId } } },
+          { team: { members: { some: { userId } } } },
+        ],
       },
       include: {
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
+        owner: { select: { id: true, name: true, email: true } },
         members: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true },
-            },
-          },
+          include: { user: { select: { id: true, name: true, email: true } } },
         },
         columns: {
           orderBy: { order: "asc" },
@@ -47,9 +45,7 @@ export const boardRepository = {
             tasks: {
               orderBy: { order: "asc" },
               include: {
-                assignee: {
-                  select: { id: true, name: true, email: true },
-                },
+                assignee: { select: { id: true, name: true, email: true } },
               },
             },
           },
@@ -57,7 +53,6 @@ export const boardRepository = {
       },
     });
   },
-
   getMembers: async (boardId: string) => {
     return prisma.boardMember.findMany({
       where: { boardId },
@@ -110,12 +105,34 @@ export const boardRepository = {
     return prisma.board.findUnique({ where: { id } });
   },
   hasAccess: async (boardId: string, userId: string): Promise<boolean> => {
-    const count = await prisma.board.count({
-      where: {
-        id: boardId,
-        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-      },
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      select: { ownerId: true, teamId: true },
     });
-    return count > 0;
+
+    if (!board) return false;
+
+    if (board.ownerId === userId) return true;
+
+    const isMember = await prisma.boardMember.count({
+      where: { boardId, userId },
+    });
+    if (isMember > 0) return true;
+
+    if (board.teamId) {
+      const isTeamMember = await prisma.teamMember.count({
+        where: { teamId: board.teamId, userId },
+      });
+      if (isTeamMember > 0) return true;
+    }
+
+    return false;
+  },
+
+  findAllByTeamId: async (teamId: string): Promise<Board[]> => {
+    return prisma.board.findMany({
+      where: { teamId },
+      orderBy: { createdAt: "desc" },
+    });
   },
 };

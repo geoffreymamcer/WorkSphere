@@ -1,3 +1,4 @@
+// 🔢 1️⃣ START: Full BoardsPage Implementation
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
@@ -8,6 +9,7 @@ import { Button } from "../components/ui/Button";
 import { Icons } from "../components/ui/Icons";
 import { boardService } from "../services/board.service";
 
+// Define the shape expected by the UI
 interface UIBoard {
   id: string;
   title: string;
@@ -19,16 +21,18 @@ interface UIBoard {
 }
 
 interface BoardsPageProps {
-  onLogout?: () => void;
+  // No props needed as DashboardLayout handles auth internally
 }
 
-export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
+export const BoardsPage: React.FC<BoardsPageProps> = () => {
   const navigate = useNavigate();
+
+  // UI State
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
-  // State for fetching
+  // Data State
   const [boards, setBoards] = useState<UIBoard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,24 +68,38 @@ export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
   const filteredBoards =
     filter === "all" ? boards : boards.filter((b) => b.isFavorite);
 
+  // Handle Joining a Board via Invite Code
   const handleJoinBoard = async (code: string) => {
-    const result = await boardService.acceptInvite(code);
-
-    // Navigate to the joined board
-    navigate(`/boards/${result.boardId}`);
+    try {
+      const result = await boardService.acceptInvite(code);
+      // Navigate to the joined board
+      navigate(`/boards/${result.boardId}`);
+    } catch (error) {
+      console.error(error);
+      throw error; // Throw to let the modal handle the error display
+    }
   };
 
-  // Updated to receive the full board object from the modal
-  const handleCreate = (newBoard: any) => {
-    // Optimistic update or just navigate
-    navigate(`/boards/${newBoard.id}`);
+  // Handle Creating a Board (API Call here to prevent duplicates)
+  const handleCreate = async (data: {
+    name: string;
+    description: string;
+    template: string;
+  }) => {
+    try {
+      const newBoard = await boardService.create(data);
+      navigate(`/boards/${newBoard.id}`);
+    } catch (e) {
+      console.error(e);
+      throw e; // Throw to let the modal handle the error state
+    }
   };
 
   const handleBoardClick = (id: string) => {
     navigate(`/boards/${id}`);
   };
 
-  // Dummy toggle since backend doesn't support favorites yet
+  // Optimistic Toggle for Favorites (Backend sync pending)
   const handleToggleFavorite = (id: string) => {
     setBoards((prev) =>
       prev.map((b) => (b.id === id ? { ...b, isFavorite: !b.isFavorite } : b))
@@ -111,7 +129,7 @@ export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
               Join Board
             </Button>
 
-            {/* Simple Filter Tabs */}
+            {/* Filter Tabs */}
             <div className="flex p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm transition-colors">
               <button
                 onClick={() => setFilter("all")}
@@ -137,7 +155,7 @@ export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Content Section */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
@@ -151,13 +169,13 @@ export const BoardsPage: React.FC<BoardsPageProps> = ({ onLogout }) => {
           <>
             {/* Boards Grid */}
             <BoardGrid
-              boards={filteredBoards as any} // Casting for compatibility
+              boards={filteredBoards as any} // Casting due to slight type mismatch in legacy Grid component
               onCreateBoard={() => setIsCreateModalOpen(true)}
               onBoardClick={handleBoardClick}
               onToggleFavorite={handleToggleFavorite}
             />
 
-            {/* Empty State Helper */}
+            {/* Empty State */}
             {filteredBoards.length === 0 && (
               <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 transition-colors">
                 <div className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600">

@@ -4,13 +4,17 @@ import { Input } from "../ui/Input";
 import { TextArea } from "../ui/TextArea";
 import { Button } from "../ui/Button";
 import { Icons } from "../ui/Icons";
-import { boardService } from "../../services/board.service";
 
 interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // Updated signature to return the full board object
-  onCreate: (board: any) => void;
+  // Updated signature: Expects data, not a Board object
+  // It returns a Promise so the modal can show a loading state while the parent creates the board
+  onCreate: (data: {
+    name: string;
+    description: string;
+    template: string;
+  }) => Promise<void>;
 }
 
 const TEMPLATES = [
@@ -45,6 +49,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Reset state when opening
   React.useEffect(() => {
     if (isOpen) {
       setName("");
@@ -66,19 +71,17 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     setError("");
 
     try {
-      // 1. Call Backend
-      const newBoard = await boardService.create({
+      // FIX: Do NOT call service here. Pass data to parent.
+      // The parent (TeamsPage, BoardsPage) decides if it needs a teamId or not.
+      await onCreate({
         name,
         description,
         template: selectedTemplate,
       });
-
-      // 2. Pass result up to parent
-      onCreate(newBoard);
       onClose();
     } catch (err: any) {
       console.error("Failed to create board:", err);
-      // Handle Validation Errors
+      // Handle error passed down from parent
       if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else {

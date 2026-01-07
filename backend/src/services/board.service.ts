@@ -1,13 +1,20 @@
 import { boardRepository } from "../repositories/board.repository";
 import { CreateBoardInput } from "../validators/board.schema";
 import { AppError } from "../utils/AppError"; // Import AppError
+import { teamRepository } from "../repositories/team.repository";
 
 export const boardService = {
   createBoard: async (userId: string, input: CreateBoardInput) => {
-    const { name, description, template } = input;
+    const { name, description, template, teamId } = input;
+
+    // Verify Team Membership if teamId provided
+    if (teamId) {
+      const isMember = await teamRepository.isMember(teamId, userId);
+      if (!isMember)
+        throw new AppError("You are not a member of this team", 403);
+    }
 
     let initialColumns: { title: string; order: number }[] = [];
-
     if (template === "kanban") {
       initialColumns = [
         { title: "To Do", order: 0 },
@@ -18,17 +25,24 @@ export const boardService = {
       initialColumns = [{ title: "My Tasks", order: 0 }];
     }
 
-    const board = await boardRepository.create(
+    const connectData: any = {
+      owner: { connect: { id: userId } },
+    };
+
+    // FIX: Ensure this logic exists to link the board to the team
+    if (teamId) {
+      connectData.team = { connect: { id: teamId } };
+    }
+
+    return boardRepository.create(
       {
         name,
         description: description || "",
         template,
-        owner: { connect: { id: userId } },
+        ...connectData,
       },
       initialColumns
     );
-
-    return board;
   },
 
   getBoardMembers: async (userId: string, boardId: string) => {

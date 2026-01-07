@@ -1,3 +1,4 @@
+// 🔢 1️⃣ START: Full DashboardPage Code
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
@@ -6,18 +7,32 @@ import { ActivityFeed } from "../components/dashboard/ActivityFeed";
 import { CreateBoardModal } from "../components/boards/CreateBoardModal";
 import { Icons } from "../components/ui/Icons";
 import { Button } from "../components/ui/Button";
+import { boardService } from "../services/board.service";
 
 interface DashboardPageProps {
-  onLogout: () => void;
+  // onLogout is handled by DashboardLayout internally via context
 }
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
+export const DashboardPage: React.FC<DashboardPageProps> = () => {
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Updated: Navigate to the new board immediately after creation
-  const handleCreateBoard = (newBoard: any) => {
-    navigate(`/boards/${newBoard.id}`);
+  // FIX: Handle API call here instead of inside the modal
+  const handleCreateBoard = async (data: {
+    name: string;
+    description: string;
+    template: string;
+  }) => {
+    try {
+      const newBoard = await boardService.create(data);
+      // Navigate immediately to the new board
+      navigate(`/boards/${newBoard.id}`);
+    } catch (e) {
+      console.error(e);
+      // Re-throw to let the modal know (if modal handled errors)
+      // or handle error display here
+      throw e;
+    }
   };
 
   return (
@@ -91,6 +106,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onLogout }) => {
                 View all
               </Button>
             </div>
+
+            {/* 
+              NOTE: This table currently uses static data for visual purposes.
+              To make this dynamic, you would fetch boards using boardService.getAll() 
+              inside a useEffect here, similar to BoardsPage.tsx.
+            */}
             <div className="overflow-x-auto">
               <table className="min-w-full whitespace-nowrap text-left text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">

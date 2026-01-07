@@ -1,13 +1,7 @@
 import React from "react";
 import { Icons } from "../ui/Icons";
-
-export interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  role: "Admin" | "Member" | "Viewer";
-  avatarUrl?: string;
-}
+// Import the interface from service to ensure type safety with API response
+import type { TeamMember } from "../../services/team.service";
 
 interface TeamMemberRowProps {
   member: TeamMember;
@@ -18,33 +12,31 @@ export const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
   member,
   canManage,
 }) => {
+  // Extract user details safely
+  const { user, role } = member;
+  const displayName = user.name || "Unnamed User";
+  const displayEmail = user.email;
+
+  const displayRole = role === "OWNER" || role === "ADMIN" ? "Admin" : "Member";
+  const isAdmin = displayRole === "Admin";
+
+  const initials = (displayName || displayEmail || "?")
+    .substring(0, 2)
+    .toUpperCase();
+
   return (
     <div className="flex items-center justify-between py-4 px-6 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
       <div className="flex items-center gap-4">
-        {/* Avatar / Initials */}
-        <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300 ring-2 ring-white dark:ring-gray-800">
-          {member.avatarUrl ? (
-            <img
-              src={member.avatarUrl}
-              alt={member.name}
-              className="h-full w-full rounded-full object-cover"
-            />
-          ) : (
-            member.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .substring(0, 2)
-              .toUpperCase()
-          )}
+        <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white ring-2 ring-white dark:ring-gray-800 shadow-sm">
+          {initials}
         </div>
 
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {member.name}
+            {displayName}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {member.email}
+            {displayEmail}
           </p>
         </div>
       </div>
@@ -54,13 +46,13 @@ export const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
           className={`
             inline-flex items-center px-2.5 py-1 rounded text-xs font-medium border border-transparent
             ${
-              member.role === "Admin"
+              isAdmin
                 ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700/30"
                 : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
             }
         `}
         >
-          {member.role}
+          {displayRole}
         </span>
 
         {canManage && (
