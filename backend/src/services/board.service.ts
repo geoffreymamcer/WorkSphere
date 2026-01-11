@@ -2,12 +2,12 @@ import { boardRepository } from "../repositories/board.repository";
 import { CreateBoardInput } from "../validators/board.schema";
 import { AppError } from "../utils/AppError"; // Import AppError
 import { teamRepository } from "../repositories/team.repository";
+import { activityService } from "./activity.service";
 
 export const boardService = {
   createBoard: async (userId: string, input: CreateBoardInput) => {
     const { name, description, template, teamId } = input;
 
-    // Verify Team Membership if teamId provided
     if (teamId) {
       const isMember = await teamRepository.isMember(teamId, userId);
       if (!isMember)
@@ -25,24 +25,28 @@ export const boardService = {
       initialColumns = [{ title: "My Tasks", order: 0 }];
     }
 
-    const connectData: any = {
-      owner: { connect: { id: userId } },
-    };
+    const connectData: any = { owner: { connect: { id: userId } } };
+    if (teamId) connectData.team = { connect: { id: teamId } };
 
-    // FIX: Ensure this logic exists to link the board to the team
-    if (teamId) {
-      connectData.team = { connect: { id: teamId } };
-    }
-
-    return boardRepository.create(
-      {
-        name,
-        description: description || "",
-        template,
-        ...connectData,
-      },
+    const board = await boardRepository.create(
+      { name, description: description || "", template, ...connectData },
       initialColumns
     );
+
+    // LOG ACTIVITY
+    await activityService.logActivity(
+      userId,
+      "CREATE_BOARD",
+      "BOARD",
+      board.id,
+      {
+        boardId: board.id,
+        teamId: teamId,
+        metadata: { boardName: name },
+      }
+    );
+
+    return board;
   },
 
   getBoardMembers: async (userId: string, boardId: string) => {

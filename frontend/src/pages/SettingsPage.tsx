@@ -1,27 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Toggle } from "../components/ui/Toggle";
 import { Icons } from "../components/ui/Icons";
 import { useTheme } from "../context/ThemeContext";
+import { userService } from "../services/user.service";
 
 interface SettingsPageProps {
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 type SettingsTab = "profile" | "security" | "notifications" | "preferences";
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("preferences");
+export const SettingsPage: React.FC<SettingsPageProps> = () => {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [loading, setLoading] = useState(false);
   const { theme, setTheme } = useTheme();
 
   // Form States
   const [profile, setProfile] = useState({
-    name: "Alex Morgan",
-    email: "alex@worksphere.com",
-    role: "Product Designer",
+    name: "",
+    email: "",
+    role: "", // Mapped to jobTitle
+    avatarUrl: "",
   });
 
   const [notifications, setNotifications] = useState({
@@ -35,11 +37,56 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
     twoFactor: false,
   });
 
-  const handleSave = () => {
+  // Fetch Profile on Load
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await userService.getProfile();
+        setProfile({
+          name: data.name || "",
+          email: data.email,
+          role: data.jobTitle || "",
+          avatarUrl: data.avatarUrl || "",
+        });
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // Save Profile Changes
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await userService.updateProfile({
+        name: profile.name,
+        jobTitle: profile.role,
+      });
+      // In a real app, you might show a toast notification here
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save profile");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  // Mock Avatar Upload
+  const handleAvatarChange = async () => {
+    const url = prompt("Enter image URL (Mock Upload):");
+    if (url) {
+      try {
+        await userService.uploadAvatar(url);
+        setProfile((prev) => ({ ...prev, avatarUrl: url }));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return (name || "User").substring(0, 2).toUpperCase();
   };
 
   const tabs = [
@@ -50,7 +97,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
   ];
 
   return (
-    <DashboardLayout onLogout={onLogout}>
+    <DashboardLayout>
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -96,7 +143,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
 
           {/* Main Content Area */}
           <div className="flex-1 space-y-6">
-            {/* Profile Section */}
+            {/* --- PROFILE TAB --- */}
             {activeTab === "profile" && (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-colors">
@@ -105,11 +152,24 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
                   </h3>
 
                   <div className="flex items-center gap-6 mb-8">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#4F46E5] to-indigo-400 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-white dark:ring-gray-700 shadow-sm">
-                      AM
-                    </div>
+                    {profile.avatarUrl ? (
+                      <img
+                        src={profile.avatarUrl}
+                        alt="Profile"
+                        className="h-20 w-20 rounded-full object-cover ring-4 ring-white dark:ring-gray-700 shadow-sm"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#4F46E5] to-indigo-400 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-white dark:ring-gray-700 shadow-sm">
+                        {getInitials(profile.name)}
+                      </div>
+                    )}
+
                     <div>
-                      <Button variant="secondary" className="!w-auto mb-2">
+                      <Button
+                        variant="secondary"
+                        className="!w-auto mb-2"
+                        onClick={handleAvatarChange}
+                      >
                         Change Avatar
                       </Button>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -157,10 +217,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
               </div>
             )}
 
-            {/* Security Section */}
+            {/* --- SECURITY TAB --- */}
             {activeTab === "security" && (
               <div className="space-y-6">
-                {/* Password */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-colors">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
                     Password & Authentication
@@ -217,7 +276,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
               </div>
             )}
 
-            {/* Notifications Section */}
+            {/* --- NOTIFICATIONS TAB --- */}
             {activeTab === "notifications" && (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-colors">
@@ -264,7 +323,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
               </div>
             )}
 
-            {/* Preferences Section */}
+            {/* --- PREFERENCES TAB --- */}
             {activeTab === "preferences" && (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 transition-colors">
@@ -300,6 +359,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
                     ))}
                   </div>
 
+                  {/* Restored Regional Settings */}
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                     Regional
                   </h3>

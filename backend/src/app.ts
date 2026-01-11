@@ -8,6 +8,8 @@ import { errorMiddleware } from "./middleware/error.middleware";
 import { authenticate } from "./middleware/auth.middleware";
 import teamRoutes from "./routes/team.routes";
 import inviteRoutes from "./routes/invite.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
+import userRoutes from "./routes/user.routes";
 
 const app = express();
 
@@ -17,20 +19,18 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
-
 app.use("/auth", authRoutes);
-
 app.use(authenticate);
-
 app.use(errorMiddleware);
-
 app.use(authenticate);
-
 app.use("/boards", boardRoutes);
 app.use("/lists", listRoutes);
 app.use("/tasks", taskRoutes);
 app.use("/invites", inviteRoutes);
 app.use("/teams", teamRoutes);
+app.use("/dashboard", dashboardRoutes);
+app.use("/users", userRoutes);
 
 export default app;

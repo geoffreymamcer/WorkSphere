@@ -19,4 +19,10 @@ export const userRepository = {
       data,
     });
   },
+  update: async (id: string, data: Prisma.UserUpdateInput): Promise<User> => {
+    return prisma.user.update({
+      where: { id },
+      data,
+    });
+  },
 };

@@ -3,6 +3,7 @@ import { columnRepository } from "../repositories/column.repository";
 import { boardRepository } from "../repositories/board.repository";
 import { AppError } from "../utils/AppError";
 import { getIO } from "../lib/socket";
+import { activityService } from "./activity.service";
 
 export const taskService = {
   createTask: async (userId: string, listId: string, title: string) => {
@@ -14,7 +15,6 @@ export const taskService = {
       throw new AppError("Unauthorized access to this board", 403);
 
     const maxOrder = await taskRepository.findMaxOrder(listId);
-
     const newTask = await taskRepository.create(
       listId,
       title,
@@ -22,8 +22,18 @@ export const taskService = {
       userId
     );
 
-    getIO().to(`board:${list.boardId}`).emit("task:created", newTask);
+    await activityService.logActivity(
+      userId,
+      "CREATE_TASK",
+      "TASK",
+      newTask.id,
+      {
+        boardId: list.boardId,
+        metadata: { taskTitle: title, columnName: list.title },
+      }
+    );
 
+    getIO().to(`board:${list.boardId}`).emit("task:created", newTask);
     return newTask;
   },
 
@@ -54,6 +64,17 @@ export const taskService = {
       newOrder
     );
 
+    // LOG ACTIVITY (Only if column changed)
+    if ((task as any).columnId !== targetColumnId) {
+      await activityService.logActivity(userId, "MOVE_TASK", "TASK", taskId, {
+        boardId: taskBoardId,
+        metadata: {
+          taskTitle: updatedTask.title,
+          toColumn: targetColumn.title,
+        },
+      });
+    }
+
     getIO().to(`board:${taskBoardId}`).emit("task:moved", {
       taskId,
       targetColumnId,
@@ -82,6 +103,11 @@ export const taskService = {
     }
 
     const updatedTask = await taskRepository.update(taskId, updateData);
+
+    await activityService.logActivity(userId, "UPDATE_TASK", "TASK", taskId, {
+      boardId: taskBoardId,
+      metadata: { taskTitle: updatedTask.title },
+    });
 
     getIO().to(`board:${taskBoardId}`).emit("task:updated", updatedTask);
 

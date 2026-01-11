@@ -11,6 +11,8 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
+  jobTitle  String?  
+  avatarUrl String?  
   password  String
   createdAt DateTime @default(now())
 
@@ -19,6 +21,7 @@ model User {
   
   assignedTasks    Task[]
   teamMemberships  TeamMember[]
+  activities       ActivityLog[]
 
 }
 
@@ -40,11 +43,14 @@ model Board {
   name        String
   description String?
   template    String
-  ownerId     String   // User who created it
-  teamId      String?  // Optional relation to Team
+  ownerId     String
+  teamId      String?
   
+  status      String   @default("IN_PROGRESS") 
+  dueDate     DateTime?
+
   owner       User     @relation(fields: [ownerId], references: [id])
-  team        Team?    @relation(fields: [teamId], references: [id]) // Relation
+  team        Team?    @relation(fields: [teamId], references: [id])
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -52,7 +58,10 @@ model Board {
   columns     Column[]
   members     BoardMember[]
   invites     BoardInvite[]
+  activities  ActivityLog[]
+
 }
+
 
 model Team {
   id          String   @id @default(uuid())
@@ -65,6 +74,8 @@ model Team {
   members     TeamMember[]
   boards      Board[]
   inviteCodes TeamInviteCode[]
+    activities  ActivityLog[]
+
 }
 
 model TeamMember {
@@ -129,4 +140,21 @@ model TeamInviteCode {
   createdAt DateTime @default(now())
 
   team      Team     @relation(fields: [teamId], references: [id])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  type        String   // 'CREATE_BOARD', 'CREATE_TASK', 'MOVE_TASK', 'UPDATE_TASK', 'JOIN_TEAM', 'JOIN_BOARD'
+  entityType  String   // 'BOARD', 'TASK', 'TEAM'
+  entityId    String
+  actorId     String
+  boardId     String?  // Optional context
+  teamId      String?  // Optional context
+  metadata    Json?    // Stores dynamic data like 'fromColumn', 'toColumn', 'taskTitle'
+  
+  actor       User     @relation(fields: [actorId], references: [id])
+  board       Board?   @relation(fields: [boardId], references: [id])
+  team        Team?    @relation(fields: [teamId], references: [id])
+
+  createdAt   DateTime @default(now())
 }

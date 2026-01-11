@@ -71,7 +71,17 @@ export const boardRepository = {
   findAllByUserId: async (userId: string): Promise<Board[]> => {
     return prisma.board.findMany({
       where: {
-        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId } } },
+          {
+            team: {
+              members: {
+                some: { userId },
+              },
+            },
+          },
+        ],
       },
       orderBy: { createdAt: "desc" },
     });
