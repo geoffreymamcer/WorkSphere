@@ -13,11 +13,14 @@ let io: Server;
 export const initSocket = (httpServer: HttpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: "http://localhost:5173",
+      origin: [
+        "http://localhost:5173",
+        "https://work-sphere-project.vercel.app"
+      ],
       methods: ["GET", "POST", "PATCH", "DELETE"],
       credentials: true,
     },
-  });
+  }); 
 
   io.use((socket: AuthSocket, next) => {
     const token = socket.handshake.auth.token;
