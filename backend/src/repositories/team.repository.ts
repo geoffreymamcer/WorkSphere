@@ -13,15 +13,25 @@ export const teamRepository = {
   create: async (
     userId: string,
     name: string,
-    description?: string
+    description?: string,
   ): Promise<Team> => {
     return prisma.$transaction(async (tx) => {
       const team = await tx.team.create({
-        data: { name, description, ownerId: userId },
+        data: {
+          name,
+          description,
+          ownerId: userId,
+        },
       });
+
       await tx.teamMember.create({
-        data: { teamId: team.id, userId, role: "OWNER" },
+        data: {
+          teamId: team.id,
+          userId,
+          role: "OWNER",
+        },
       });
+
       return team;
     });
   },
@@ -40,7 +50,7 @@ export const teamRepository = {
 
   findById: async (
     teamId: string,
-    userId: string
+    userId: string,
   ): Promise<TeamWithMembers | null> => {
     return prisma.team.findFirst({
       where: {
@@ -82,7 +92,7 @@ export const teamRepository = {
   addMember: async (
     teamId: string,
     userId: string,
-    role: string = "MEMBER"
+    role: string = "MEMBER",
   ): Promise<TeamMember> => {
     return prisma.teamMember.create({
       data: {

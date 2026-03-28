@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+
+    /* Modern Node.js settings for "type": "module" */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* Where to put the compiled code (Matches your package.json start script) */
+    "outDir": "./dist",
+    "rootDir": "./"
+  },
+  "include": ["src/**/*", "prisma.config.ts"],
+  "exclude": ["node_modules"]
+}
